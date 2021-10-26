@@ -57,12 +57,12 @@ jobs:
         if [[ -z "$PROD_DEPLOYMENT" ]]; then
           echo "Prod deployment doesn't exist, creating..."
           export PROD_DEPLOYMENT=${{env.NEW_DEPLOYMENT_NAME}}
-          az ml batch-deployment create --name $NEW_DEPLOYMENT_NAME --endpoint-name $ENDPOINT_NAME --file batch-endpoint/mlflow-deployment.yml --set model=azureml:$MODEL_NAME:$LATEST_MODEL_VERSION --set-default
+          az ml batch-deployment create --name $NEW_DEPLOYMENT_NAME --endpoint-name $ENDPOINT_NAME --file code/batch-endpoint/mlflow-deployment.yml --set model=azureml:$MODEL_NAME:$LATEST_MODEL_VERSION --set-default
         fi
     - name: Create new deployment
       if: ${{env.NOT_FIRST_RUN}}
       run: |
-        az ml batch-deployment create --name $NEW_DEPLOYMENT_NAME --endpoint-name $ENDPOINT_NAME --file batch-endpoint/mlflow-deployment.yml --set model=azureml:$MODEL_NAME:$LATEST_MODEL_VERSION
+        az ml batch-deployment create --name $NEW_DEPLOYMENT_NAME --endpoint-name $ENDPOINT_NAME --file code/batch-endpoint/mlflow-deployment.yml --set model=azureml:$MODEL_NAME:$LATEST_MODEL_VERSION
   
   verify_new_deployment:
     needs: [create_new_deployment]
@@ -85,7 +85,7 @@ jobs:
     - name: Verify new deployment
       run: |
         echo "Verify new deployment"
-        export JOB_NAME=$(az ml batch-endpoint invoke --name $ENDPOINT_NAME --deployment-name $NEW_DEPLOYMENT_NAME --input-local-path batch-endpoint/data/test_data.csv --query name -o tsv)
+        export JOB_NAME=$(az ml batch-endpoint invoke --name $ENDPOINT_NAME --deployment-name $NEW_DEPLOYMENT_NAME --input-local-path code/batch-endpoint/data/test_data.csv --query name -o tsv)
         echo "Batch scoring job: $JOB_NAME"
         echo "Stream job logs..."
         az ml job stream -n $JOB_NAME
