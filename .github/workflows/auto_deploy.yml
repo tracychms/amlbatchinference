@@ -6,7 +6,7 @@ on:
     types: [completed]
 
 env:
-  NEW_DEPLOYMENT_NAME: run${{ github.run_number }}
+  NEW_DEPLOYMENT_NAME: run${{github.run_number}}
   ENDPOINT_NAME: demo-edp
   DEPLOYMENT_FILE: code/batch-endpoint/mlflow-deployment.yml
 
@@ -60,6 +60,7 @@ jobs:
           export PROD_DEPLOYMENT=${{env.NEW_DEPLOYMENT_NAME}}
           az ml batch-deployment create --name $NEW_DEPLOYMENT_NAME --endpoint-name $ENDPOINT_NAME --file code/batch-endpoint/mlflow-deployment.yml --set model=$LATEST_MODEL --set-default
         else 
+          echo "Prod deployment exists: $PROD_DEPLOYMENT"
           echo "::set-output name=NOT_FIRST_RUN::true"
           echo "NOT_FIRST_RUN=true" >> $GITHUB_ENV
         fi
@@ -110,8 +111,7 @@ jobs:
   
   rollout_new_deployment:
     needs: [verify_new_deployment]
-    if: ${{env.NOT_FIRST_RUN}}
-    # if: ${{ needs.create_new_deployment.outputs.NOT_FIRST_RUN }}
+    if: ${{ needs.create_new_deployment.outputs.NOT_FIRST_RUN }}
     name: Rollout verified new deployment
     runs-on: ubuntu-latest
     steps:
