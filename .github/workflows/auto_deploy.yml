@@ -110,8 +110,9 @@ jobs:
   
   rollout_new_deployment:
     needs: [verify_new_deployment]
-    if: ${{ needs.create_new_deployment.outputs.NOT_FIRST_RUN }}
-    name: Rollout "Verify new deployment"
+    if: ${{env.NOT_FIRST_RUN}}
+    # if: ${{ needs.create_new_deployment.outputs.NOT_FIRST_RUN }}
+    name: Rollout verified new deployment
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
