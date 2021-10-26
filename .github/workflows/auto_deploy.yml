@@ -66,7 +66,7 @@ jobs:
     - name: Create new deployment
       if: ${{env.NOT_FIRST_RUN}}
       run: |
-        az ml batch-deployment create --name $NEW_DEPLOYMENT_NAME --endpoint-name $ENDPOINT_NAME --file code/batch-endpoint/mlflow-deployment.yml --set model=azureml:$MODEL_NAME:$LATEST_MODEL_VERSION
+        az ml batch-deployment create --name $NEW_DEPLOYMENT_NAME --endpoint-name $ENDPOINT_NAME --file code/batch-endpoint/mlflow-deployment.yml --set model=$LATEST_MODEL
   
   verify_new_deployment:
     needs: [create_new_deployment]
