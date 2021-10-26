@@ -41,6 +41,7 @@ jobs:
     - name: Get latest model id
       run: |
         export LATEST_MODEL=$(<latest-model.txt)
+        echo $LATEST_MODEL
         echo "LATEST_MODEL=$LATEST_MODEL" >> $GITHUB_ENV
     - name: Create batch-endpoint if not exist
       run: |        
