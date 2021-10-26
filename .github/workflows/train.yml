@@ -1,62 +1,50 @@
-# Actions train a model on Azure Machine Learning
-name: aml-train
-on: [pull_request]
+name: train
+on:
+  workflow_dispatch
+# on: [pull_request]
 
-jobs:
+env:
+  TRAINING_JOB_PREFIX: mlflow-model-job
+  MODEL_NAME: mlflow-model #model name to register
+
+jobs:  
   train:
     runs-on: ubuntu-latest
     steps:
-    # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-    - name: Check Out Repository
-      id: checkout_repository
-      uses: actions/checkout@v2
-        
-    # Connect or Create the Azure Machine Learning Workspace
-    - name: Connect/Create Azure Machine Learning Workspace
-      id: aml_workspace
-      uses: Azure/aml-workspace@v1
+    - name: azure login
+      uses: azure/login@v1
       with:
-          azure_credentials: ${{ secrets.AZURE_CREDENTIALS }}
+        creds: ${{secrets.AZURE_CREDENTIALS}}
+    - run: |
+          az config set defaults.workspace=${{secrets.AML_WORKSPACE}}
+          az config set defaults.group=${{secrets.RESOURCE_GROUP}}          
+          az account set -s ${{secrets.SUBSCRIPTION_ID}}  
     
-    # Connect or Create a Compute Target in Azure Machine Learning
-    - name: Connect/Create Azure Machine Learning Compute Target
-      id: aml_compute_training
-      uses: Azure/aml-compute@v1
-      with:
-          azure_credentials: ${{ secrets.AZURE_CREDENTIALS }}
+    - name: Install azureml cli extension
+      run: az extension add --source https://azuremlsdktestpypi.blob.core.windows.net/wheels/sdk-cli-v2/ml-0.0.23_october_cand-py3-none-any.whl --yes
+      #run: az extension add -n ml -y
     
-    # Submit a training run to the Azure Machine Learning
-    - name: Submit training run
-      id: aml_run
-      uses: Azure/aml-run@v1
-      with:
-          azure_credentials: ${{ secrets.AZURE_CREDENTIALS }}
+    - name: Checkout
+      uses: actions/checkout@v2.3.3
 
-    - name: comment PR
-      uses: unsplash/comment-on-pr@master
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        msg: "${{ steps.aml_run.outputs.run_metrics }}"
-    
-    # Register model in Azure Machine Learning model registry
+    - name: Run training job
+      run: |
+        export TRAINING_JOB=${{ env.TRAINING_JOB_PREFIX }}-`echo $RANDOM`
+        # run the training job
+        az ml job create -f code/train/job.yml -n $TRAINING_JOB -s
+        echo "TRAINING_JOB=$TRAINING_JOB" >> $GITHUB_ENV
     - name: Register model
-      id: aml_registermodel
-      uses: Azure/aml-registermodel@v1
+      run: |
+        # download the job output
+        az ml job download -n $TRAINING_JOB -p run-outputs        
+        # register model
+        MODEL_VERSION=$(az ml model create -n ${{ env.MODEL_NAME }} -l run-outputs/$TRAINING_JOB/nyc_taxi/ --query version -o tsv)
+        #write model name and version to file
+        export MODEL_NAME_WITH_VERSION=azureml:${{ env.MODEL_NAME }}:$MODEL_VERSION
+        echo $MODEL_NAME_WITH_VERSION > latest-model.txt
+    
+    - name: Update model verion as artifact
+      uses: actions/upload-artifact@v2
       with:
-          azure_credentials: ${{ secrets.AZURE_CREDENTIALS }}
-          run_id:  ${{ steps.aml_run.outputs.run_id }}
-          experiment_name: ${{ steps.aml_run.outputs.experiment_name }}
-
-    - name: comment PR
-      uses: unsplash/comment-on-pr@master
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        msg: "${{ steps.aml_registermodel.outputs.model_id }}"
-
-    # - uses: actions/upload-artifact@v1
-    #   with:
-    #     name: ${{ steps.aml_run.outputs.model }}
-    #     path: SpatialSimOutputs
-
+        name: latest-model
+        path: latest-model.txt

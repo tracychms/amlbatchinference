@@ -1,0 +1,19 @@
+$schema: https://azuremlschemas.azureedge.net/latest/commandJob.schema.json  
+inputs:
+  training_data: 
+    dataset:
+      local_path: ./data
+outputs:
+  model_output: 
+    mode: upload
+  test_data: 
+    mode: upload
+code:
+  local_path: src
+environment: azureml:AzureML-sklearn-0.24-ubuntu18.04-py37-cuda11-gpu:9
+compute: azureml:batch-cluster
+command: >-
+  python train.py 
+  --training_data ${{inputs.training_data}} 
+  --test_data ${{outputs.test_data}} 
+  --model_output ${{outputs.model_output}}

@@ -1,0 +1,152 @@
+name: auto-deploy-batch
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["train"]
+    types: [completed]
+
+env:
+  NEW_DEPLOYMENT_NAME: run${{ github.run_number }}
+  ENDPOINT_NAME: demo-edp
+  DEPLOYMENT_FILE: batch-endpoint/mlflow-deployment.yml
+
+jobs:  
+  create_new_deployment:
+    name: Create new batch deployment
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch'}}
+    outputs:
+      NOT_FIRST_RUN: ${{ steps.create_initial_prod.outputs.NOT_FIRST_RUN }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2.3.3
+    - name: azure login
+      uses: azure/login@v1
+      with:
+        creds: ${{secrets.AZURE_CREDENTIALS}}
+    - name: Set defaults
+      run: |
+          az config set defaults.workspace=${{secrets.AML_WORKSPACE}}
+          az config set defaults.group=${{secrets.RESOURCE_GROUP}}          
+          az account set -s ${{secrets.SUBSCRIPTION_ID}}    
+    - name: Install azureml cli extension
+      run: az extension add --source https://azuremlsdktestpypi.blob.core.windows.net/wheels/sdk-cli-v2/ml-0.0.23_october_cand-py3-none-any.whl --yes
+      #run: az extension add -n ml -y    
+    - name: Download latest model
+      uses: dawidd6/action-download-artifact@v2  
+      with:
+        name: latest-model
+        workflow: train.yml
+        #workflow_conclusion: success
+    - name: Get latest model id
+      run: |
+        export LATEST_MODEL=$(<latest-model.txt)
+        echo "LATEST_MODEL=$LATEST_MODEL" >> $GITHUB_ENV
+    - name: Create batch-endpoint if not exist
+      run: |        
+        export ENDPOINT_EXISTS=$(az ml batch-endpoint list -o tsv --query "[?name=='${{secrets.ENDPOINT_NAME }}'][name]" |  wc -l)
+        if [[ ENDPOINT_EXISTS -ne 1 ]]; then
+          az ml batch-endpoint create -n ${{env.ENDPOINT_NAME }}          
+        else
+          echo "endpoint exists"
+        fi
+    - name: Create prod deployment if not exist
+      run: |
+        export PROD_DEPLOYMENT=$(az ml batch-endpoint show -n $ENDPOINT_NAME --query defaults.deployment_name -o tsv)
+        echo "PROD_DEPLOYMENT=$PROD_DEPLOYMENT" >> $GITHUB_ENV
+        if [[ -z "$PROD_DEPLOYMENT" ]]; then
+          echo "Prod deployment doesn't exist, creating..."
+          export PROD_DEPLOYMENT=${{env.NEW_DEPLOYMENT_NAME}}
+          az ml batch-deployment create --name $NEW_DEPLOYMENT_NAME --endpoint-name $ENDPOINT_NAME --file batch-endpoint/mlflow-deployment.yml --set model=azureml:$MODEL_NAME:$LATEST_MODEL_VERSION --set-default
+        fi
+    - name: Create new deployment
+      if: ${{env.NOT_FIRST_RUN}}
+      run: |
+        az ml batch-deployment create --name $NEW_DEPLOYMENT_NAME --endpoint-name $ENDPOINT_NAME --file batch-endpoint/mlflow-deployment.yml --set model=azureml:$MODEL_NAME:$LATEST_MODEL_VERSION
+  
+  verify_new_deployment:
+    needs: [create_new_deployment]
+    name: Verify new deployment
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2.3.3
+    - name: azure login
+      uses: azure/login@v1
+      with:
+        creds: ${{secrets.AZURE_CREDENTIALS}}
+    - name: Set defaults
+      run: |
+        az config set defaults.workspace=${{secrets.AML_WORKSPACE}}
+        az config set defaults.group=${{secrets.RESOURCE_GROUP}}
+        az account set -s ${{secrets.SUBSCRIPTION_ID}}  
+    - name: Install azureml cli extension
+      run: az extension add --source https://azuremlsdktestpypi.blob.core.windows.net/wheels/sdk-cli-v2/ml-0.0.23_october_cand-py3-none-any.whl --yes
+    - name: Verify new deployment
+      run: |
+        echo "Verify new deployment"
+        export JOB_NAME=$(az ml batch-endpoint invoke --name $ENDPOINT_NAME --deployment-name $NEW_DEPLOYMENT_NAME --input-local-path batch-endpoint/data/test_data.csv --query name -o tsv)
+        echo "Batch scoring job: $JOB_NAME"
+        echo "Stream job logs..."
+        az ml job stream -n $JOB_NAME
+        echo "Check job status..."
+        export STATUS=$(az ml job show -n $JOB_NAME --query status -o tsv)
+        echo $STATUS
+        if [[ $STATUS == "Completed" ]]
+        then
+          echo "Job completed"
+        elif [[ $STATUS ==  "Failed" ]]
+        then
+          echo "Job failed"
+          exit 1
+        else 
+          echo "Job status not failed or completed"
+          exit 2
+        fi
+  
+  rollout_new_deployment:
+    needs: [verify_new_deployment]
+    if: ${{ needs.create_new_deployment.outputs.NOT_FIRST_RUN }}
+    name: Rollout "Verify new deployment"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2.3.3
+      - name: azure login
+        uses: azure/login@v1
+        with:
+          creds: ${{secrets.AZURE_CREDENTIALS}}
+      - name: Set defaults
+        run: |
+          az config set defaults.workspace=${{secrets.AML_WORKSPACE}}
+          az config set defaults.group=${{secrets.RESOURCE_GROUP}}
+          az account set -s ${{secrets.SUBSCRIPTION_ID}}  
+      - name: Install azureml cli extension
+        run: az extension add --source https://azuremlsdktestpypi.blob.core.windows.net/wheels/sdk-cli-v2/ml-0.0.23_october_cand-py3-none-any.whl --yes
+      - name: Rollout new deployment
+        run: |
+          export PROD_DEPLOYMENT=$(az ml batch-endpoint show -n $ENDPOINT_NAME --query defaults.deployment_name -o tsv)
+          az ml batch-endpoint update --name $ENDPOINT_NAME --defaults deployment_name=$NEW_DEPLOYMENT_NAME
+          OLD_PROD_DEPLOYMENT=$PROD_DEPLOYMENT
+          PROD_DEPLOYMENT=$NEW_DEPLOYMENT_NAME
+
+  delete_old_deployment:
+    needs: [rollout_new_deployment]
+    name: Delete old deployment
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2.3.3
+      - name: azure login
+        uses: azure/login@v1
+        with:
+          creds: ${{secrets.AZURE_CREDENTIALS}}
+      - name: Set defaults
+        run: |
+          az config set defaults.workspace=${{secrets.AML_WORKSPACE}}
+          az config set defaults.group=${{secrets.RESOURCE_GROUP}}
+          az account set -s ${{secrets.SUBSCRIPTION_ID}}
+      - name: Install azureml cli extension
+        run: az extension add --source https://azuremlsdktestpypi.blob.core.windows.net/wheels/sdk-cli-v2/ml-0.0.15_october_cand-py3-none-any.whl --yes
+      - name: Delete old deployment
+        run: az ml batch-deployment delete --name $OLD_PROD_DEPLOYMENT --yes

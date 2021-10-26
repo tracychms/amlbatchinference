@@ -1,12 +1,6 @@
-# ML Ops with GitHub Actions and AML
+# Azure ML Batch Endpoints
 
-<p align="center">
-  <img src="docs/images/aml.png" height="80"/>
-  <img src="https://i.ya-webdesign.com/images/a-plus-png-2.png" alt="plus" height="40"/>
-  <img src="docs/images/actions.png" alt="Azure Machine Learning + Actions" height="80"/>
-</p>
-
-This template shows the more extensive capabilities of using [GitHub Actions](https://github.com/features/actions) with [Azure Machine Learning](https://docs.microsoft.com/en-us/azure/machine-learning/) managing a machine learning project with automated training and deployment. For a more simplified version of this automated pipeline, see the [ml-template-azure](https://github.com/machine-learning-apps/ml-template-azure) repository. 
+This repo shows the more extensive capabilities of using [GitHub Actions](https://github.com/features/actions) with [Azure Machine Learning](https://docs.microsoft.com/en-us/azure/machine-learning/) managing [Batch Endpoints](https://docs.microsoft.com/en-us/azure/machine-learning/how-to-use-batch-endpoint) with automated deployment.
 
 # Getting started
 
@@ -21,11 +15,7 @@ If you don’t have an Azure subscription, create a free account before you begi
 
 ### 2. Create repository
 
-To get started with ML Ops, simply create a new repo based off this template, by clicking on the green "Use this template" button:
-
-<p align="center">
-  <img src="https://help.github.com/assets/images/help/repository/use-this-template-button.png" alt="GitHub Template repository" width="700"/>
-</p>
+Fork this repo.
 
 ### 3. Setting up the required secrets
 
