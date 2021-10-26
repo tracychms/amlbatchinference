@@ -8,7 +8,7 @@ on:
 env:
   NEW_DEPLOYMENT_NAME: run${{ github.run_number }}
   ENDPOINT_NAME: demo-edp
-  DEPLOYMENT_FILE: batch-endpoint/mlflow-deployment.yml
+  DEPLOYMENT_FILE: code/batch-endpoint/mlflow-deployment.yml
 
 jobs:  
   create_new_deployment:
@@ -58,7 +58,7 @@ jobs:
         if [[ -z "$PROD_DEPLOYMENT" ]]; then
           echo "Prod deployment doesn't exist, creating..."
           export PROD_DEPLOYMENT=${{env.NEW_DEPLOYMENT_NAME}}
-          az ml batch-deployment create --name $NEW_DEPLOYMENT_NAME --endpoint-name $ENDPOINT_NAME --file code/batch-endpoint/mlflow-deployment.yml --set model=azureml:$MODEL_NAME:$LATEST_MODEL_VERSION --set-default
+          az ml batch-deployment create --name $NEW_DEPLOYMENT_NAME --endpoint-name $ENDPOINT_NAME --file code/batch-endpoint/mlflow-deployment.yml --set model=$LATEST_MODEL --set-default
         fi
     - name: Create new deployment
       if: ${{env.NOT_FIRST_RUN}}
