@@ -30,8 +30,8 @@ jobs:
           az config set defaults.group=${{secrets.RESOURCE_GROUP}}          
           az account set -s ${{secrets.SUBSCRIPTION_ID}}    
     - name: Install azureml cli extension
-      run: az extension add --source https://azuremlsdktestpypi.blob.core.windows.net/wheels/sdk-cli-v2/ml-0.0.23_october_cand-py3-none-any.whl --yes
-      #run: az extension add -n ml -y    
+      # run: az extension add --source https://azuremlsdktestpypi.blob.core.windows.net/wheels/sdk-cli-v2/ml-0.0.23_october_cand-py3-none-any.whl --yes
+      run: az extension add -n ml -y    
     - name: Download latest model
       uses: dawidd6/action-download-artifact@v2  
       with:
@@ -87,7 +87,8 @@ jobs:
         az config set defaults.group=${{secrets.RESOURCE_GROUP}}
         az account set -s ${{secrets.SUBSCRIPTION_ID}}  
     - name: Install azureml cli extension
-      run: az extension add --source https://azuremlsdktestpypi.blob.core.windows.net/wheels/sdk-cli-v2/ml-0.0.23_october_cand-py3-none-any.whl --yes
+      run: az extension add -n ml -y 
+      # run: az extension add --source https://azuremlsdktestpypi.blob.core.windows.net/wheels/sdk-cli-v2/ml-0.0.23_october_cand-py3-none-any.whl --yes
     - name: Verify new deployment
       run: |
         echo "Verify new deployment"
@@ -131,7 +132,8 @@ jobs:
           az config set defaults.group=${{secrets.RESOURCE_GROUP}}
           az account set -s ${{secrets.SUBSCRIPTION_ID}}  
       - name: Install azureml cli extension
-        run: az extension add --source https://azuremlsdktestpypi.blob.core.windows.net/wheels/sdk-cli-v2/ml-0.0.23_october_cand-py3-none-any.whl --yes
+        run: az extension add -n ml -y 
+        # run: az extension add --source https://azuremlsdktestpypi.blob.core.windows.net/wheels/sdk-cli-v2/ml-0.0.23_october_cand-py3-none-any.whl --yes
       - id: rollout_new_prod
         name: Rollout new deployment
         run: |
@@ -159,6 +161,7 @@ jobs:
           az config set defaults.group=${{secrets.RESOURCE_GROUP}}
           az account set -s ${{secrets.SUBSCRIPTION_ID}}
       - name: Install azureml cli extension
-        run: az extension add --source https://azuremlsdktestpypi.blob.core.windows.net/wheels/sdk-cli-v2/ml-0.0.15_october_cand-py3-none-any.whl --yes
+        run: az extension add -n ml -y 
+        # run: az extension add --source https://azuremlsdktestpypi.blob.core.windows.net/wheels/sdk-cli-v2/ml-0.0.15_october_cand-py3-none-any.whl --yes
       - name: Delete old deployment
         run: az ml batch-deployment delete --name ${{needs.rollout_new_deployment.outputs.OLD_PROD_DEPLOYMENT}} -e $ENDPOINT_NAME --yes
