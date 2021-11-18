@@ -86,8 +86,6 @@ jobs:
          chmod +x ./scripts/install-packages.sh
          ./scripts/install-packages.sh
       shell: bash
-    - name: pip install
-      run: pip install -r python-sdk/requirements.txt
     - name: azure login
       uses: azure/login@v1
       with:
